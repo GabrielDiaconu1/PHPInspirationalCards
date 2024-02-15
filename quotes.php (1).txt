@@ -1,0 +1,95 @@
+<?php
+
+/**
+ * Gabriel Diaconu, 000799618
+ * Certification: I certify that this material is my original work.
+ * No other person's work has been used without suitable acknowledgment,
+ * and I have not made my work available to anyone else.
+ * November 24 2023
+ */
+// Get the page number from the query string and validate it as an integer
+$page = filter_input(INPUT_GET, "page", FILTER_VALIDATE_INT);
+
+// Database credentials
+$dbname = "sa000799618";
+$username = "sa000799618";
+$password = "Sa_19960427";
+
+try {
+    // Establish a connection to the database using PDO
+    $dbh = new PDO("mysql:host=localhost;dbname=$dbname", $username, $password);
+} catch (Exception $e) {
+    // Handle connection errors and exit with an error message
+    die("Error: Couldn't connect.{$e->getMessage()}");
+}
+
+// Set pagination parameters
+$limit = 20;
+$offset = max(0, ($page - 1) * $limit);
+
+// SQL command to retrieve data with pagination
+$command = "SELECT author_name, quote_text FROM authors a
+JOIN quotes q ON a.author_id=q.author_id LIMIT :limit OFFSET :offset";
+
+// Prepare the SQL statement
+$stmt = $dbh->prepare($command);
+
+// Bind parameters for the prepared statement
+$stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+$stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+
+// Execute the statement
+$success = $stmt->execute();
+
+// Check for errors during execution
+$errorInfo = $stmt->errorInfo();
+if ($errorInfo[0] !== PDO::ERR_NONE) {
+    // Handle SQL errors and exit with an error message
+    die("Error: " . $errorInfo[2]);
+}
+
+// If the query is successful, fetch the results
+if ($success) {
+    $response = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Create an array to store HTML representations of inspirational cards
+    $cards = [];
+    foreach ($response as $responses) {
+        // Call the inspirationalCard function and add the result to the cards array
+        $cards[] = inspirationalCard($responses['quote_text'], $responses['author_name']);
+    }
+
+    // Convert the array of cards to JSON and output it
+    echo json_encode($cards);
+} else {
+    // Output a message in case of connection failure
+    echo "connection failure";
+}
+
+/**
+ * Generates an HTML representation of an inspirational card.
+ *
+ * @param string $quoteText The text of the quote.
+ * @param string $authorName The name of the author.
+ *
+ * @return string HTML representation of the card.
+ */
+function inspirationalCard($quoteText, $authorName)
+{
+    // Sanitize input values to prevent HTML injection
+    $authorName = filter_var($authorName, FILTER_SANITIZE_SPECIAL_CHARS);
+    $quoteText = filter_var($quoteText, FILTER_SANITIZE_SPECIAL_CHARS);
+
+    // Return an HTML representation of the card using heredoc syntax
+    return <<<HTML
+        <div class="col mb-3">
+            <div class="card a4card w-100">
+                <div class="card-header">$authorName</div>
+                <div class="card-body d-flex align-items-center">
+                    <p class="card-text w-100">$quoteText</p>
+                </div>
+            </div>
+        </div>
+HTML;
+}
+?>
